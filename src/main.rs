@@ -4,8 +4,18 @@ use std::process::exit;
 use distributed_bss::{CombinedGPK, Signature};
 use serde::{Deserialize, Serialize};
 
+fn usage(name: &str) -> String {
+    return format!(
+        r#"usage:\t {} verify\
+           \
+           Read parameters (message, signature, and gpk from stdin, in the rmp format."#,
+        name
+    );
+}
+
 fn main() -> Result<(), String> {
     let mut args = std::env::args();
+    let name = args.next().unwrap();
 
     match args.next().as_deref() {
         Some("verify") => {
@@ -19,7 +29,10 @@ fn main() -> Result<(), String> {
             let code = !res as i32;
             exit(code);
         }
-        _ => exit(1),
+        _ => {
+            println!("{}", usage(&name));
+            exit(1);
+        }
     }
 }
 
