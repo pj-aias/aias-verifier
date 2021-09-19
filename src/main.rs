@@ -18,9 +18,9 @@ fn main() -> Result<(), String> {
 
     match args.next().as_deref() {
         Some("verify") => {
-            let mut buffer = String::new();
+            let mut buffer = Vec::new();
             stdin()
-                .read_to_string(&mut buffer)
+                .read_to_end(&mut buffer)
                 .map_err(|_| "failed to read from stdin".to_string())?;
             let res = verify(&buffer)?;
 
@@ -42,9 +42,9 @@ struct VerifyParams {
     gpk: CombinedGPK,
 }
 
-pub fn verify(params_str: &str) -> Result<bool, String> {
-    let params: VerifyParams = rmp_serde::from_read(params_str.as_bytes())
-        .or(Err("Failed to decode input".to_string()))?;
+pub fn verify(params_bytes: &[u8]) -> Result<bool, String> {
+    let params: VerifyParams =
+        rmp_serde::from_read(params_bytes).or(Err("Failed to decode input".to_string()))?;
 
     let VerifyParams {
         message,
