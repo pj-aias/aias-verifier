@@ -6,9 +6,8 @@ use serde::{Deserialize, Serialize};
 
 fn usage(name: &str) -> String {
     return format!(
-        r#"usage:\t {} verify\
-           \
-           Read parameters (message, signature, and gpk from stdin, in the rmp format."#,
+        "usage:\t {} verify\n\n\
+        Read parameters (message, signature, and gpk from stdin, in the rmp format.",
         name
     );
 }
@@ -38,7 +37,7 @@ fn main() -> Result<(), String> {
 
 #[derive(Serialize, Deserialize)]
 struct VerifyParams {
-    message: String,
+    message: Vec<u8>,
     signature: Signature,
     gpk: CombinedGPK,
 }
@@ -53,6 +52,6 @@ pub fn verify(params_str: &str) -> Result<bool, String> {
         gpk,
     } = params;
 
-    let result = distributed_bss::verify(message.as_bytes(), &signature, &gpk).is_ok();
+    let result = distributed_bss::verify(&message, &signature, &gpk).is_ok();
     return Ok(result);
 }
