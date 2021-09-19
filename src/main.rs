@@ -21,10 +21,16 @@ fn main() -> Result<(), String> {
             stdin()
                 .read_to_end(&mut buffer)
                 .map_err(|_| "failed to read from stdin".to_string())?;
-            let res = verify(&buffer)?;
+            let ok = verify(&buffer)?;
 
-            // 0 if success, or else others
-            let code = !res as i32;
+            let code = if ok {
+                println!("OK");
+                0
+            } else {
+                println!("NG");
+                1
+            };
+
             exit(code);
         }
         _ => {
