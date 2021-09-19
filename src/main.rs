@@ -1,13 +1,26 @@
 use std::io::{stdin, Read};
+use std::process::exit;
 
 use distributed_bss::{CombinedGPK, Signature};
 use serde::{Deserialize, Serialize};
 
-fn main() {
-    let mut buffer = String::new();
-    stdin()
-        .read_to_string(&mut buffer)
-        .expect("failed to read from stdin");
+fn main() -> Result<(), String> {
+    let mut args = std::env::args();
+
+    match args.next().as_deref() {
+        Some("verify") => {
+            let mut buffer = String::new();
+            stdin()
+                .read_to_string(&mut buffer)
+                .map_err(|_| "failed to read from stdin".to_string())?;
+            let res = verify(&buffer)?;
+
+            // 0 if success, or else others
+            let code = !res as i32;
+            exit(code);
+        }
+        _ => exit(1),
+    }
 }
 
 #[derive(Serialize, Deserialize)]
