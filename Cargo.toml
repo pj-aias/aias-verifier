@@ -6,3 +6,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+rmp-serde = "0.15.5"
+base64 = "0.13.0"
+
+[dependencies.distributed-bss]
+git="https://github.com/pj-aias/distributed-bss"
+branch = "main"
