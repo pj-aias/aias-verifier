@@ -40,7 +40,7 @@ fn main() -> Result<(), String> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 struct VerifyParams {
     message: Vec<u8>,
     signature: String,
@@ -91,16 +91,33 @@ mod test {
     }
 
     #[test]
+    fn accepts_from_outside() {
+        // from Go using sample
+        let sample =
+            "g6dtZXNzYWdlxAtzb21lTWVzc2FnZalzaWduYXR1cmWtc29tZVNpZ25hdHVyZaNncGunc29tZUdwaw==";
+        let raw = base64::decode(sample).expect("failed to decode base64");
+
+        let expect = get_sample();
+        let actual = rmp_serde::from_read(&*raw).expect("failed to decode message pack");
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
     #[ignore]
     fn sample_encode() {
-        let params = VerifyParams {
-            message: "someMessage".as_bytes().to_owned(),
-            signature: "someSignature".to_string(),
-            gpk: "someGpk".to_string(),
-        };
+        let params = get_sample();
         let raw = rmp_serde::to_vec(&params).expect("failed to encode");
 
         let txt = base64::encode(raw);
         println!("{}", txt);
+    }
+
+    fn get_sample() -> VerifyParams {
+        VerifyParams {
+            message: "someMessage".as_bytes().to_owned(),
+            signature: "someSignature".to_string(),
+            gpk: "someGpk".to_string(),
+        }
     }
 }
