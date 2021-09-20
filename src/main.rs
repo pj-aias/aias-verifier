@@ -89,4 +89,18 @@ mod test {
 
         assert!(!res);
     }
+
+    #[test]
+    #[ignore]
+    fn sample_encode() {
+        let params = VerifyParams {
+            message: "someMessage".as_bytes().to_owned(),
+            signature: "someSignature".to_string(),
+            gpk: "someGpk".to_string(),
+        };
+        let raw = rmp_serde::to_vec(&params).expect("failed to encode");
+
+        let txt = base64::encode(raw);
+        println!("{}", txt);
+    }
 }
