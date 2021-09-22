@@ -139,14 +139,10 @@ someMessage"
     }
 
     #[test]
-    fn accepts_from_outside() {
-        // from Go using sample
-        let sample = "someSignature
-someGpk
-someMessage";
-
+    fn can_parse_params() {
         let expect = get_sample();
-        let actual = VerifyParams::try_from(sample.as_bytes()).expect("failed to parse");
+        let s = expect.to_bytes();
+        let actual = VerifyParams::try_from(&*s).expect("failed to parse");
 
         assert_eq!(expect, actual);
     }
