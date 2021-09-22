@@ -117,12 +117,12 @@ mod test {
     #[test]
     fn accepts_from_outside() {
         // from Go using sample
-        let sample =
-            "g6dtZXNzYWdlxAtzb21lTWVzc2FnZalzaWduYXR1cmWtc29tZVNpZ25hdHVyZaNncGunc29tZUdwaw==";
-        let raw = base64::decode(sample).expect("failed to decode base64");
+        let sample = "someSignature
+someGpk
+someMessage";
 
         let expect = get_sample();
-        let actual = VerifyParams::try_from(&*raw).expect("failed to parse");
+        let actual = VerifyParams::try_from(sample.as_bytes()).expect("failed to parse");
 
         assert_eq!(expect, actual);
     }
