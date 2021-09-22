@@ -126,6 +126,17 @@ mod test {
     }
 
     #[test]
+    fn convert_to_correct_bytes() {
+        let expect = "someSignature
+someGpk
+someMessage"
+            .as_bytes();
+
+        let actual = get_sample().to_bytes();
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
     fn accepts_from_outside() {
         // from Go using sample
         let sample = "someSignature
