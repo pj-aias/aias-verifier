@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io::{stdin, Read};
 use std::process::exit;
 
@@ -48,9 +49,7 @@ struct VerifyParams {
 }
 
 pub fn verify(params_bytes: &[u8]) -> Result<bool, String> {
-    let params: VerifyParams =
-        rmp_serde::from_read(params_bytes).or(Err("Failed to decode input".to_string()))?;
-
+    let params = VerifyParams::try_from(params_bytes)?;
     let message = params.message;
 
     let signature_bin = base64::decode(params.signature).or(Err("Failed to decode signature"))?;
@@ -62,6 +61,13 @@ pub fn verify(params_bytes: &[u8]) -> Result<bool, String> {
 
     let result = distributed_bss::verify(&message, &signature, &gpk).is_ok();
     return Ok(result);
+}
+
+impl TryFrom<&[u8]> for VerifyParams {
+    type Error = String;
+    fn try_from(bytes: &[u8]) -> Result<Self, Error> {
+        rmp_serde::from_read(bytes).map_err(|e| format!("Failed to decode input: {}", e))
+    }
 }
 
 #[cfg(test)]
@@ -98,7 +104,7 @@ mod test {
         let raw = base64::decode(sample).expect("failed to decode base64");
 
         let expect = get_sample();
-        let actual = rmp_serde::from_read(&*raw).expect("failed to decode message pack");
+        let actual = VerifyParams::try_from(&*raw).expect("failed to parse");
 
         assert_eq!(expect, actual);
     }
