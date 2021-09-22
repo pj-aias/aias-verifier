@@ -65,8 +65,26 @@ pub fn verify(params_bytes: &[u8]) -> Result<bool, String> {
 
 impl TryFrom<&[u8]> for VerifyParams {
     type Error = String;
-    fn try_from(bytes: &[u8]) -> Result<Self, Error> {
-        rmp_serde::from_read(bytes).map_err(|e| format!("Failed to decode input: {}", e))
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        // {signature}\n
+        // {gpk}\n
+        // {message
+        // ...
+        // }
+        let lines: Vec<_> = bytes.splitn(3, |b| *b == b'\n').collect();
+        if lines.len() < 3 {
+            return Err("not enough inputs".to_string());
+        }
+
+        let signature = String::from_utf8_lossy(lines[0]).into_owned();
+        let gpk = String::from_utf8_lossy(lines[1]).into_owned();
+        let message = lines[2].to_owned();
+
+        Ok(Self {
+            message,
+            signature,
+            gpk,
+        })
     }
 }
 
