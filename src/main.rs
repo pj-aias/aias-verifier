@@ -92,7 +92,9 @@ impl VerifyParams {
     pub fn to_bytes(&self) -> Vec<u8> {
         [
             self.signature.as_bytes(),
+            b"\n",
             self.gpk.as_bytes(),
+            b"\n",
             &self.message,
         ]
         .concat()
