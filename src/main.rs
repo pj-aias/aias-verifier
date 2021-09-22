@@ -88,6 +88,17 @@ impl TryFrom<&[u8]> for VerifyParams {
     }
 }
 
+impl VerifyParams {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        [
+            self.signature.as_bytes(),
+            self.gpk.as_bytes(),
+            &self.message,
+        ]
+        .concat()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
