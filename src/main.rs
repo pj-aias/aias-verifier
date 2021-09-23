@@ -50,16 +50,11 @@ struct VerifyParams {
 
 pub fn verify(params_bytes: &[u8]) -> Result<bool, String> {
     let params = VerifyParams::try_from(params_bytes)?;
-    let message = params.message;
-
-    let signature_bin = base64::decode(params.signature).or(Err("Failed to decode signature"))?;
     let signature =
-        rmp_serde::from_read(&*signature_bin).or(Err("Failed to deserialize signature"))?;
+        serde_json::from_str(&params.signature).or(Err("Failed to deserialize signature"))?;
+    let gpk = serde_json::from_str(&params.gpk).or(Err("Failed to decode gpk"))?;
 
-    let gpk_bin = base64::decode(params.gpk).or(Err("Failed to decode gpk"))?;
-    let gpk = rmp_serde::from_read(&*gpk_bin).or(Err("Failed to deserialize gpk"))?;
-
-    let result = distributed_bss::verify(&message, &signature, &gpk).is_ok();
+    let result = distributed_bss::verify(&params.message, &signature, &gpk).is_ok();
     return Ok(result);
 }
 
@@ -106,38 +101,87 @@ mod test {
     use super::*;
 
     #[test]
-    fn verifies_ok() {
-        let message = b"hoge".to_vec();
-        let signature = "nNwAMMylOyvMhMztzPsbQsyXzIXMki7Mi8zNPQrMuszqB0PM7Sp6zJrMqUrMqnjMnhLM/RvM08yhzIBEzLd1QFMxzMvM2Mz4D1zM9gbcADDMocz6SczPzKPMn8zxzLrMwE41zNzM4WhqBX/MmMzmzJTMhDgnzMoSzL7MiBfMlsylMszfzJBCYXvM18yyzM16zKIkRF1XzKt/zPfcADDMocyMzKTMzszTzL1izO14GMzpGsyhMsy4zPDMgczqzOXM8MzbHcyazKHMtBMBzJPMm0vMoszGbczAAMyQesz9YTAEN0xEzMQ2zOt8k9wAMMyxzPPMz38iex/MtXpKzLTMzAJSzJbMl3XMmMyEzMTMtgnMsW3My8yTzL9LJ8yZzPvM3nh2M8zZzIY7HsybPMyIYczpzJF1zLY/3AAwzIZTzKHM1icvzOtIzMzM0MzUzOzM1szTfwI/zOAzzIDM6lPM5mINzO5BzM3M08zjOw/M2D7MqszlzLrMjcy6zKrMs1t9KMzFLMz8zOzcADDMqm1mYMyffszaNDLM1wkhLczWRMyRcszIzPthzNnM18z/NMz4OUsozKxrLFvMqxhxzNVOHsyGzLzM839vSMzoEcyoHdwAIMyqGlQlJMzYzIjM1UssHA/M82J3zO/M/ns0dMynZh4wzLLMhHvM7TQ1UW7cACDMoszizKZLzLDMtsy/zLUieQfM0szaRBhEcwbM4My4zPnM0czNR8zdzPHMnFvM5GQBAdwAIMzKzIfM6szIzObM31N+CF4wRwvMrHXMgGQDzIZLLSdTzIwwFcyqzLTMhczFzJ003AAgeczizNw4InY0LmZJzObMmszzzN3M0k7MvW1QGczRzN/Mt1U2zLdGERFUJw2T3AAgzLQJAx/Mr3DMnWbMgcyBzNvM7BIdWRHMv8zazInMzcztzMtJzNYEFcyqHnrM0mI73AAgzI7M3szyzNXM4cyMLcyYCszvX8zAzLAxzPB/zMjM4VfMsMzHYWstzKpBzPbMlX7MlcyhRdwAIMzgHk/M28zezKvM2UMONMzGeczARUAtRsyuFczJc8yheB1uzPkXcMyvSsyxBJPcACBkzP3Mt8y9MMyxzM3M08zCzJ/M1mnMl8ydzPUhzKLMviECzM3Mk8zmDMyBUFnM8syBzIfM1AXcACDMrszqzOUzzK7M38ygzNx1VGUyzKJPHMy4fm7M+syIzNN0zLnMrMyxzJcZTcytzMbMoV7cACDM137MzA19cFBTzI0jzJhgzNd9aMyxzJA1zL8ezJ5jZsybzLHMvj9czIbM2D5Hk9wAIDfMisyHMlfM1gHMmRDM4My3zNwoNMzmcczBzLkWUGwRzPvM58zizIHMtszODHwsZdwAIFjM8MzLzPdfzOvMkSLMvszXacz3zKkuDknMmgLMw8yCZszUzPt5zJN5CBTMoxzMhx/cACBiLMz6zP7MtxjM5H0fSU/Mp8zuBszDzI8VcMymzITMqEIyIEDMiXfMv8zJzIETcJPcACDMkMyPzIAVccyAzOccRWlBMsz4GMyCAiB6WgvMnCQczPLM6MzBPzXM+MzFzM1R3AAgzPTMzArM+sz6Ccz2SxXM1HU4FRVyzJFRzIEnMsyhJC/M3B3Mlsy4HXrMhMzjCdwAIAcazJ3M/T/Mscy1TMyRPczrNMyETcypIMyvHsyszPHMl8ywzI7Mm8zSzN43PzgWzOEV".to_string();
-        let gpk = "ldwAMMy1UczUKDjM8BbMjmXM28yXMhgdTUTMpCF8dczSSMzLe0AsMsyDPDgLzKLM0gXMn2PMvknMpsyZVjATG1TMpRrMutwAMMyrzN8VY1I5zPB3QD/MuQpkzNVOzIbM8FjMuMyybMydzPDM1szIzLrMucyTPB03W8zTzJUnzOXM4wbM48yTH8z8zJMfSszZzKY13AAwzJbM1BYqaGtkb8zmXTHM4MzqzKFUEMzgJHDMyczNdiALcczjzIENEARGF0FpzOpRSgDM4kfM7TLMwsytzLJKzLbM8NwAMMyTJDQvH8yAzMwbUTAJEmFTeXBPzInMusyfzKjMzwoRBMzuO1bM62fMzXAnzI8mzOIYzLLM8z7M5szOzI4xasz4f8ylk5LcADDMuczMzL01P3/MtErMuHPMtcznY8zhYcywzLY9zII4YTJ+DwXMwyjMvcyqMhdiZAXMqRzMoszHZ8zYzLvMs8zyzMPMnwnM3syJ3ABgzIZVDjkdzJLMk8yJzLcHzLfMjHsSL0wuzI8XzLg+zMPMn8yAXMzmIhAEYXrMlztWExEhDMyzWCHM0cyXSyvMwnDMhgbMjVV7AcyizIzM0TtJEszszJomCszSLhvMvczpTgpozLNkX1rMjsyMIGh3RWTMuwUsWCTMkiwyzJrMkszfOWgkktwAMMywzMJ2zP/MozrMiMyqOszVB8yMzMUpzJVtzIbM6FfMoBd1zPw8WszLD1bMhTh/cMyPe1wxQTDM6R7Mh0hhMHxNzKjMo9wAYMyqchU6zKcYHczJzLN0zOrMmcy/zIPMuAvMszkQBhTM+czozPdlzPdPzPVdzJfMn8zBzIjMyQhya8zszL3MwjoBzJ5ZzKokT8yMAMy8zIQmLAnMusynzOJqzORmzJLMj2BUXiXMwsy7LVPM8sytzLzM5AEAGsymzLzMlmTMxGjM/8yBzIvMhMyGzMo2zLDMt8zBzIfMnczYktwAMMySzJ7M1QhgUsyHbMz1WszwzPUnzIxmVszXbFjMvFV9VwTMnCQuWSLMtczvzOYazLolzJHMqszdzO7M4y0TJRkPR3dQ3ABgzK3MjljMp8zCcBnM38yVP8zhGcydzKXMnsyjFxNrzJPM08ypzLzMoWXMvUbMwMyefMyYO2ljzJQWKwbM08zczOAQFcyDW8yvTnIXzK/M4cyCDcyFzLdNzP9tL13M8nTM3lQRzJp6zJLMiFrM5jsYez0ZKF0VzJtAzILM+24kzPTMwcz5zKMzzK7MzX7MrSQK".to_string();
+    fn test() {
+        // sorry kino-ma
+        use distributed_bss::gm::{GMId, GM};
+        use distributed_bss::{CombinedGPK, CombinedUSK};
+        use rand::thread_rng;
+
+        let mut rng = thread_rng();
+
+        let gm1 = GM::random(GMId::One, &mut rng);
+        let gm2 = GM::random(GMId::Two, &mut rng);
+        let gm3 = GM::random(GMId::Three, &mut rng);
+
+        let u = gm1.gen_combined_pubkey(&gm2.gpk.h);
+        let v = gm2.gen_combined_pubkey(&gm3.gpk.h);
+        let w = gm3.gen_combined_pubkey(&gm1.gpk.h);
+
+        let h = gm3.gen_combined_pubkey(&u);
+
+        let partials = vec![
+            gm1.issue_member(&mut rng),
+            gm2.issue_member(&mut rng),
+            gm3.issue_member(&mut rng),
+        ];
+
+        let partical_gpks = vec![gm1.gpk, gm2.gpk, gm3.gpk];
+
+        let gpk = CombinedGPK {
+            h,
+            partical_gpks,
+            u,
+            v,
+            w,
+        };
+
+        let message = String::from("hoge").as_bytes().to_vec();
+        let message2 = String::from("piyo").as_bytes().to_vec();
+
+        let usk = CombinedUSK::new(&partials);
+        let signature = distributed_bss::sign(&message, &usk, &gpk, &mut rng);
+
+        let gpk = serde_json::to_string(&gpk).unwrap();
+        let signature = serde_json::to_string(&signature).unwrap();
+
         let params = VerifyParams {
             message,
-            signature,
-            gpk,
+            signature: signature.clone(),
+            gpk: gpk.clone(),
         };
         let data = params.to_bytes();
 
         let res = verify(&data).expect("failed to verify");
 
         assert!(res);
-    }
 
-    #[test]
-    fn denies_ng() {
-        // signed message is hoge, but passing fuga
-        let message = b"fuga".to_vec();
-        let signature = "nNwAMMylOyvMhMztzPsbQsyXzIXMki7Mi8zNPQrMuszqB0PM7Sp6zJrMqUrMqnjMnhLM/RvM08yhzIBEzLd1QFMxzMvM2Mz4D1zM9gbcADDMocz6SczPzKPMn8zxzLrMwE41zNzM4WhqBX/MmMzmzJTMhDgnzMoSzL7MiBfMlsylMszfzJBCYXvM18yyzM16zKIkRF1XzKt/zPfcADDMocyMzKTMzszTzL1izO14GMzpGsyhMsy4zPDMgczqzOXM8MzbHcyazKHMtBMBzJPMm0vMoszGbczAAMyQesz9YTAEN0xEzMQ2zOt8k9wAMMyxzPPMz38iex/MtXpKzLTMzAJSzJbMl3XMmMyEzMTMtgnMsW3My8yTzL9LJ8yZzPvM3nh2M8zZzIY7HsybPMyIYczpzJF1zLY/3AAwzIZTzKHM1icvzOtIzMzM0MzUzOzM1szTfwI/zOAzzIDM6lPM5mINzO5BzM3M08zjOw/M2D7MqszlzLrMjcy6zKrMs1t9KMzFLMz8zOzcADDMqm1mYMyffszaNDLM1wkhLczWRMyRcszIzPthzNnM18z/NMz4OUsozKxrLFvMqxhxzNVOHsyGzLzM839vSMzoEcyoHdwAIMyqGlQlJMzYzIjM1UssHA/M82J3zO/M/ns0dMynZh4wzLLMhHvM7TQ1UW7cACDMoszizKZLzLDMtsy/zLUieQfM0szaRBhEcwbM4My4zPnM0czNR8zdzPHMnFvM5GQBAdwAIMzKzIfM6szIzObM31N+CF4wRwvMrHXMgGQDzIZLLSdTzIwwFcyqzLTMhczFzJ003AAgeczizNw4InY0LmZJzObMmszzzN3M0k7MvW1QGczRzN/Mt1U2zLdGERFUJw2T3AAgzLQJAx/Mr3DMnWbMgcyBzNvM7BIdWRHMv8zazInMzcztzMtJzNYEFcyqHnrM0mI73AAgzI7M3szyzNXM4cyMLcyYCszvX8zAzLAxzPB/zMjM4VfMsMzHYWstzKpBzPbMlX7MlcyhRdwAIMzgHk/M28zezKvM2UMONMzGeczARUAtRsyuFczJc8yheB1uzPkXcMyvSsyxBJPcACBkzP3Mt8y9MMyxzM3M08zCzJ/M1mnMl8ydzPUhzKLMviECzM3Mk8zmDMyBUFnM8syBzIfM1AXcACDMrszqzOUzzK7M38ygzNx1VGUyzKJPHMy4fm7M+syIzNN0zLnMrMyxzJcZTcytzMbMoV7cACDM137MzA19cFBTzI0jzJhgzNd9aMyxzJA1zL8ezJ5jZsybzLHMvj9czIbM2D5Hk9wAIDfMisyHMlfM1gHMmRDM4My3zNwoNMzmcczBzLkWUGwRzPvM58zizIHMtszODHwsZdwAIFjM8MzLzPdfzOvMkSLMvszXacz3zKkuDknMmgLMw8yCZszUzPt5zJN5CBTMoxzMhx/cACBiLMz6zP7MtxjM5H0fSU/Mp8zuBszDzI8VcMymzITMqEIyIEDMiXfMv8zJzIETcJPcACDMkMyPzIAVccyAzOccRWlBMsz4GMyCAiB6WgvMnCQczPLM6MzBPzXM+MzFzM1R3AAgzPTMzArM+sz6Ccz2SxXM1HU4FRVyzJFRzIEnMsyhJC/M3B3Mlsy4HXrMhMzjCdwAIAcazJ3M/T/Mscy1TMyRPczrNMyETcypIMyvHsyszPHMl8ywzI7Mm8zSzN43PzgWzOEV".to_string();
-        let gpk = "ldwAMMy1UczUKDjM8BbMjmXM28yXMhgdTUTMpCF8dczSSMzLe0AsMsyDPDgLzKLM0gXMn2PMvknMpsyZVjATG1TMpRrMutwAMMyrzN8VY1I5zPB3QD/MuQpkzNVOzIbM8FjMuMyybMydzPDM1szIzLrMucyTPB03W8zTzJUnzOXM4wbM48yTH8z8zJMfSszZzKY13AAwzJbM1BYqaGtkb8zmXTHM4MzqzKFUEMzgJHDMyczNdiALcczjzIENEARGF0FpzOpRSgDM4kfM7TLMwsytzLJKzLbM8NwAMMyTJDQvH8yAzMwbUTAJEmFTeXBPzInMusyfzKjMzwoRBMzuO1bM62fMzXAnzI8mzOIYzLLM8z7M5szOzI4xasz4f8ylk5LcADDMuczMzL01P3/MtErMuHPMtcznY8zhYcywzLY9zII4YTJ+DwXMwyjMvcyqMhdiZAXMqRzMoszHZ8zYzLvMs8zyzMPMnwnM3syJ3ABgzIZVDjkdzJLMk8yJzLcHzLfMjHsSL0wuzI8XzLg+zMPMn8yAXMzmIhAEYXrMlztWExEhDMyzWCHM0cyXSyvMwnDMhgbMjVV7AcyizIzM0TtJEszszJomCszSLhvMvczpTgpozLNkX1rMjsyMIGh3RWTMuwUsWCTMkiwyzJrMkszfOWgkktwAMMywzMJ2zP/MozrMiMyqOszVB8yMzMUpzJVtzIbM6FfMoBd1zPw8WszLD1bMhTh/cMyPe1wxQTDM6R7Mh0hhMHxNzKjMo9wAYMyqchU6zKcYHczJzLN0zOrMmcy/zIPMuAvMszkQBhTM+czozPdlzPdPzPVdzJfMn8zBzIjMyQhya8zszL3MwjoBzJ5ZzKokT8yMAMy8zIQmLAnMusynzOJqzORmzJLMj2BUXiXMwsy7LVPM8sytzLzM5AEAGsymzLzMlmTMxGjM/8yBzIvMhMyGzMo2zLDMt8zBzIfMnczYktwAMMySzJ7M1QhgUsyHbMz1WszwzPUnzIxmVszXbFjMvFV9VwTMnCQuWSLMtczvzOYazLolzJHMqszdzO7M4y0TJRkPR3dQ3ABgzK3MjljMp8zCcBnM38yVP8zhGcydzKXMnsyjFxNrzJPM08ypzLzMoWXMvUbMwMyefMyYO2ljzJQWKwbM08zczOAQFcyDW8yvTnIXzK/M4cyCDcyFzLdNzP9tL13M8nTM3lQRzJp6zJLMiFrM5jsYez0ZKF0VzJtAzILM+24kzPTMwcz5zKMzzK7MzX7MrSQK".to_string();
         let params = VerifyParams {
-            message,
+            message: message2,
             signature,
             gpk,
         };
         let data = params.to_bytes();
 
         let res = verify(&data).expect("failed to verify");
-
         assert!(!res);
+    }
+
+    #[test]
+    fn test_real_data() {
+        let signature = r#"{"t1":[163,118,147,27,52,132,237,77,232,104,9,167,240,208,77,221,5,203,59,141,252,235,149,154,61,14,199,81,125,203,221,208,82,168,137,159,72,177,122,146,19,248,59,245,19,60,232,84],"t2":[172,85,235,198,76,238,89,242,146,16,208,230,90,251,143,82,135,113,17,225,240,79,35,90,32,72,39,23,109,228,171,159,9,213,5,44,109,21,193,4,149,146,0,110,14,190,210,190],"t3":[173,46,185,226,43,239,235,176,80,88,203,254,11,98,138,16,242,222,76,82,150,187,232,135,89,67,86,96,176,111,242,140,125,83,52,255,2,8,2,150,235,133,127,28,78,113,104,1],"t4":[[173,188,118,156,217,219,223,25,83,93,11,45,40,132,154,227,212,4,18,97,38,5,118,251,46,85,88,100,65,133,197,95,234,227,88,124,140,168,3,208,86,185,182,231,167,72,252,79],[146,19,51,27,206,249,183,9,0,8,245,100,204,6,184,206,54,45,71,62,3,228,17,128,89,77,47,219,73,96,226,238,70,2,31,170,55,207,193,184,146,234,223,206,90,208,221,109],[151,70,158,231,21,161,52,88,110,182,144,194,237,165,234,151,148,125,223,246,210,229,176,201,131,147,227,113,145,83,65,238,43,34,214,191,226,90,243,13,102,160,60,221,221,152,183,122]],"hash":[192,26,219,42,82,176,176,178,34,118,183,102,66,118,171,249,94,218,27,161,51,190,153,37,80,108,252,18,123,177,44,57],"sa":[51,221,137,89,191,133,79,160,193,7,132,211,124,245,126,197,188,40,181,106,30,8,233,243,11,67,63,231,135,149,178,14],"sb":[109,231,134,196,174,63,157,141,121,240,20,134,132,118,82,173,131,1,157,94,103,16,17,100,25,244,63,8,178,255,111,62],"sc":[154,96,173,130,173,136,110,165,202,235,11,14,4,41,227,197,178,248,39,178,163,42,180,17,97,174,79,15,228,219,189,107],"sx":[[227,35,13,87,148,108,113,5,107,107,145,175,200,208,136,168,188,177,150,173,46,127,77,32,50,12,107,114,105,105,101,108],[248,119,223,207,122,45,88,127,231,39,41,74,220,9,138,145,106,116,219,5,141,251,115,164,195,49,22,54,210,11,81,42],[21,17,227,100,163,74,22,189,209,220,17,98,194,60,19,125,105,194,245,244,168,66,202,121,100,169,78,177,183,174,6,0]],"s_delta1":[[235,71,53,163,158,230,223,229,238,93,247,77,65,231,237,148,67,217,91,133,42,254,254,182,126,140,102,160,212,1,207,110],[38,144,133,40,44,73,176,155,206,191,39,50,220,175,197,183,62,45,167,7,189,208,23,14,102,38,54,106,95,211,155,8],[234,115,149,121,37,21,224,229,84,186,118,80,220,245,184,25,143,7,253,181,44,132,77,177,65,158,101,134,11,224,244,88]],"s_delta2":[[216,246,4,16,13,32,4,6,201,25,94,188,221,246,84,152,92,251,40,95,7,26,150,36,87,0,170,20,218,86,241,100],[216,66,102,196,55,47,149,111,20,185,81,186,4,238,65,194,100,135,174,68,138,56,205,84,88,34,66,177,111,104,163,109],[18,20,223,56,82,172,181,208,197,204,244,15,202,244,30,250,201,14,240,238,36,212,182,198,239,41,247,17,139,61,93,97]],"s_delta3":[[127,107,130,119,15,45,82,222,146,151,104,241,24,232,171,8,200,173,33,25,94,114,92,8,121,54,236,140,110,2,165,101],[233,54,159,203,177,204,142,30,194,30,161,96,75,236,185,6,13,169,175,201,250,46,183,34,248,164,83,34,122,103,12,68],[234,160,34,203,251,118,5,191,174,189,100,95,108,66,145,205,80,35,14,40,254,96,253,17,24,121,245,4,110,238,178,79]]}"#.to_string();
+        let gpk = r#"{"h":[182,195,226,162,184,185,133,39,231,4,4,67,96,251,182,140,235,10,49,73,27,220,252,160,197,7,233,246,159,253,131,196,125,213,163,167,206,65,183,154,223,106,231,225,118,157,170,131],"u":[151,96,174,19,241,138,252,142,109,51,223,148,255,139,228,245,81,225,141,11,173,232,1,248,102,184,166,206,64,212,114,242,25,94,148,173,112,239,252,37,46,60,236,207,83,239,49,138],"v":[151,96,174,19,241,138,252,142,109,51,223,148,255,139,228,245,81,225,141,11,173,232,1,248,102,184,166,206,64,212,114,242,25,94,148,173,112,239,252,37,46,60,236,207,83,239,49,138],"w":[151,96,174,19,241,138,252,142,109,51,223,148,255,139,228,245,81,225,141,11,173,232,1,248,102,184,166,206,64,212,114,242,25,94,148,173,112,239,252,37,46,60,236,207,83,239,49,138],"partical_gpks":[{"h":[128,84,198,180,77,86,22,44,6,207,69,150,195,104,208,200,145,56,12,114,244,77,110,246,214,79,162,5,241,9,1,159,15,2,135,165,39,190,121,5,70,55,104,44,65,120,34,129],"omega":[169,234,89,107,32,166,222,237,78,216,15,89,253,218,248,20,158,130,144,137,238,250,128,91,69,154,56,129,78,229,5,171,206,81,15,47,56,169,107,120,54,221,173,73,238,36,71,92,16,158,244,153,47,152,148,223,226,174,79,50,46,57,242,180,53,87,110,238,47,164,58,120,140,43,159,179,234,133,197,171,220,242,58,238,223,171,48,76,116,4,46,238,106,220,168,163]},{"h":[128,84,198,180,77,86,22,44,6,207,69,150,195,104,208,200,145,56,12,114,244,77,110,246,214,79,162,5,241,9,1,159,15,2,135,165,39,190,121,5,70,55,104,44,65,120,34,129],"omega":[169,234,89,107,32,166,222,237,78,216,15,89,253,218,248,20,158,130,144,137,238,250,128,91,69,154,56,129,78,229,5,171,206,81,15,47,56,169,107,120,54,221,173,73,238,36,71,92,16,158,244,153,47,152,148,223,226,174,79,50,46,57,242,180,53,87,110,238,47,164,58,120,140,43,159,179,234,133,197,171,220,242,58,238,223,171,48,76,116,4,46,238,106,220,168,163]},{"h":[128,84,198,180,77,86,22,44,6,207,69,150,195,104,208,200,145,56,12,114,244,77,110,246,214,79,162,5,241,9,1,159,15,2,135,165,39,190,121,5,70,55,104,44,65,120,34,129],"omega":[169,234,89,107,32,166,222,237,78,216,15,89,253,218,248,20,158,130,144,137,238,250,128,91,69,154,56,129,78,229,5,171,206,81,15,47,56,169,107,120,54,221,173,73,238,36,71,92,16,158,244,153,47,152,148,223,226,174,79,50,46,57,242,180,53,87,110,238,47,164,58,120,140,43,159,179,234,133,197,171,220,242,58,238,223,171,48,76,116,4,46,238,106,220,168,163]}]}"#.to_string();
+        let message = r#"{"username":"Xxvv","password":"ccthvvf","signature":"test"}"#
+            .to_string()
+            .as_bytes()
+            .to_vec();
+
+        let data = VerifyParams {
+            message,
+            signature,
+            gpk,
+        };
+        let res = verify(&data.to_bytes()).expect("failed to verify");
+        assert!(res);
     }
 
     #[test]
@@ -164,9 +208,7 @@ someMessage"
     #[ignore]
     fn sample_encode() {
         let params = get_sample();
-        let raw = rmp_serde::to_vec(&params).expect("failed to encode");
-
-        let txt = base64::encode(raw);
+        let txt = serde_json::to_string(&params).expect("failed to encode");
         println!("{}", txt);
     }
 
